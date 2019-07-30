@@ -18,6 +18,8 @@ enum
 int
 main (int argc, char *argv[])
 {   
+    char *allowpass = "SETAPMODE UNLOCKED ALL\r\n";
+    char *closedoor = "SETAPMODE LOCKED ALL\r\n";
     sock = 0, valread;
     struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
@@ -41,35 +43,48 @@ main (int argc, char *argv[])
         return -1;
     }
 
-    send(sock, hello, strlen(hello), 0);
-    valread = recv(sock, buffer, 1024, 0);
+
+    // 
+    // ВОТ ТУТ ДОЛЖЕН БЫТЬ ВПИСАН ЛОГИН И ПАРОЛЬ ВМЕСТО $LOGIN И $PASSWORD
+    //
+    char *login = "LOGIN 1.8 $LOGIN $PASSWORD\r\n";
+    send(sock, login, strlen(login), 0);
+    for (int i = 0; i < 1024; i++) {
+        buffer[i] = 0;
+    }
+    valread = read(sock, buffer, 1024);
+    if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
+        printf("Login Failed\n");
+    }
+
     if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
         printf("Connection Failed");
     } else {
-        char *LOGIN = "LOGIN 1.8 %s %s\r\n";
-
+        send(sock, allowpass, strlen(allowpass), 0);
+        for (int i = 0; i < 1024; i++) {
+            buffer[i] = 0;
+        }
+        valread = read(sock, buffer, 1024);
         if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
-            printf("Login Failed\n");
+            printf("\nSomething went wrong, door not opened.\n");
+        } else {
+            printf("\nDoor opened!\n");
         }
 
-        char *allowpass = "ALLOWPASS 1 17 IN\r\n";
-        if (!isOpened) {
-            send(sock, allowpass, strlen(allowpass), 0);
-            char buffer[1024] = { 0 };
-            valread = read(sock, buffer, 1024);
-            if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
-                printf("\nSomething went wrong, door not opened.\n");
-            } else {
-                printf("\nDoor opened!\n");
-            }
+        sleep(10);
+        send(sock, closedoor, strlen(closedoor), 0);
+        for (int i = 0; i < 1024; i++) {
+            buffer[i] = 0;
+        }
+        valread = read(sock, buffer, 1024);
+        if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
+            printf("\nSomething went wrong, door not closed.\n");
+        } else {
+            printf("\nDoor closed!\n");
+        }
     }
 
     while (wait(NULL) != -1);
 
-    // Free resources
-    if (msg != NULL) {
-        gst_message_unref(msg);
-    }
-    
     return 0;
 }
