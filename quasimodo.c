@@ -43,11 +43,16 @@ main (int argc, char *argv[])
         return -1;
     }
 
+    FILE* lgn= fopen("login", "r");
 
-    // 
-    // ВОТ ТУТ ДОЛЖЕН БЫТЬ ВПИСАН ЛОГИН И ПАРОЛЬ ВМЕСТО $LOGIN И $PASSWORD
-    //
-    char *login = "LOGIN 1.8 $LOGIN $PASSWORD\r\n";
+    char *logininfo = calloc(1024, sizeof(*logininfo));
+    fread(logininfo, 1024, sizeof(*logininfo), lgn);
+
+    int loginlength = strlen(logininfo) + 1;
+
+    char *login = calloc(12 + loginlength, sizeof(login));
+    snprintf(login, 12 + loginlength, "LOGIN 1.8 %s\r\n", logininfo);
+
     send(sock, login, strlen(login), 0);
     for (int i = 0; i < 1024; i++) {
         buffer[i] = 0;
@@ -60,6 +65,19 @@ main (int argc, char *argv[])
     if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
         printf("Connection Failed");
     } else {
+        // Closing the door to ensure normal operation
+        send(sock, closedoor, strlen(closedoor), 0);
+        for (int i = 0; i < 1024; i++) {
+            buffer[i] = 0;
+        }
+        valread = read(sock, buffer, 1024);
+        if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
+            printf("\nSomething went wrong, door not closed.\n");
+        } else {
+            printf("\nDoor closed!\n");
+        }
+
+        // Opening the door, waiting 10 seconds to pass
         send(sock, allowpass, strlen(allowpass), 0);
         for (int i = 0; i < 1024; i++) {
             buffer[i] = 0;
@@ -72,6 +90,8 @@ main (int argc, char *argv[])
         }
 
         sleep(10);
+
+        // Closing the door, terminating the application
         send(sock, closedoor, strlen(closedoor), 0);
         for (int i = 0; i < 1024; i++) {
             buffer[i] = 0;
@@ -85,6 +105,8 @@ main (int argc, char *argv[])
     }
 
     while (wait(NULL) != -1);
+
+    free(logininfo);
 
     return 0;
 }
