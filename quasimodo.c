@@ -1,7 +1,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <malloc.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <wait.h>
@@ -11,102 +11,103 @@ int valread;
 
 enum
 {
-    URL_MAX = 2000,
+    RETURN_VALUE_SIZE = 1024,
+    RETURN_LENGTH = 3,
+    DISPLACEMENT = 5,
+    CFG_MAX = 2000,
     PORT = 3312
 };
 
 int
-main (int argc, char *argv[])
-{   
-    char *allowpass = "SETAPMODE UNLOCKED ALL\r\n";
-    char *closedoor = "SETAPMODE LOCKED ALL\r\n";
-    sock = 0, valread;
+main(void)
+{
+    char setap_unlocked[] = "SETAPMODE UNLOCKED ALL\r\n";
+    char setap_normal[]   = "SETAPMODE NORMAL ALL\r\n";
+
     struct sockaddr_in serv_addr;
-    char buffer[1024] = {0};
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        printf("\nSocket creation error.\n");
+    char return_value[RETURN_VALUE_SIZE] = {0};
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("Socket not created. Terminating application\n");
         return -1;
     }
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
 
-    // Convert IPv4 and IPv6 configes from text to binary form
-    if(inet_pton(AF_INET, "10.15.12.245", &serv_addr.sin_addr)<=0) {
-        printf("\nInvalid config/Address not supported.\n");
+    // Reading the opener IP address, login and password from the config
+    FILE *config = fopen("config", "r");
+    char *cfg = (char *)calloc(CFG_MAX, sizeof(*cfg));
+
+    fread(cfg, CFG_MAX, sizeof(*cfg), config);
+    char *oip = DISPLACEMENT + strstr(cfg, "OIP:");
+    char *olp = DISPLACEMENT + strstr(cfg, "OLP:");
+    *strstr(oip, "\n") = 0;
+    *strstr(olp, "\n") = 0;
+
+    if (inet_pton(AF_INET, oip, &serv_addr.sin_addr) <= 0) {
+        printf("Invalid config\n");
         return -1;
     }
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        printf("\nConnection Failed \n");
+        printf("Connection Failed\n");
         return -1;
     }
 
-    FILE* lgn= fopen("login", "r");
+    char login[] = "LOGIN 1.8 %s\r\n";
 
-    char *logininfo = calloc(1024, sizeof(*logininfo));
-    fread(logininfo, 1024, sizeof(*logininfo), lgn);
-
-    int loginlength = strlen(logininfo) + 1;
-
-    char *login = calloc(12 + loginlength, sizeof(login));
-    snprintf(login, 12 + loginlength, "LOGIN 1.8 %s\r\n", logininfo);
+    printf(login, olp);
 
     send(sock, login, strlen(login), 0);
-    for (int i = 0; i < 1024; i++) {
-        buffer[i] = 0;
-    }
-    valread = read(sock, buffer, 1024);
-    if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
-        printf("Login Failed\n");
-    }
+    memset(return_value, 0, RETURN_VALUE_SIZE);
 
-    if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
-        printf("Connection Failed");
+    valread = read(sock, return_value, RETURN_VALUE_SIZE);
+    if (strlen(return_value) < 3 || !strncmp(return_value, "OK", RETURN_LENGTH)) {
+        printf("Login failed\n");
     } else {
-        // Closing the door to ensure normal operation
-        send(sock, closedoor, strlen(closedoor), 0);
-        for (int i = 0; i < 1024; i++) {
-            buffer[i] = 0;
-        }
-        valread = read(sock, buffer, 1024);
-        if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
-            printf("\nSomething went wrong, door not closed.\n");
+        // Closing door to ensure normal operation
+        
+        send(sock, setap_normal, strlen(setap_normal), 0);
+        sleep(1); // ???
+
+        memset(return_value, 0, RETURN_VALUE_SIZE);
+        valread = read(sock, return_value, RETURN_VALUE_SIZE);
+        if (strlen(return_value) < 3 || !strncmp(return_value, "OK", RETURN_LENGTH)) {
+            printf("Door didn't close\n");
         } else {
-            printf("\nDoor closed!\n");
+            printf("Door closed\n");
         }
 
-        // Opening the door, waiting 10 seconds to pass
-        send(sock, allowpass, strlen(allowpass), 0);
-        for (int i = 0; i < 1024; i++) {
-            buffer[i] = 0;
-        }
-        valread = read(sock, buffer, 1024);
-        if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
-            printf("\nSomething went wrong, door not opened.\n");
+        // Opening door, waiting 5 seconds to pass
+         
+        send(sock, setap_unlocked, strlen(setap_unlocked), 0);
+        sleep(1); // ???
+
+        memset(return_value, 0, RETURN_VALUE_SIZE);
+        valread = read(sock, return_value, RETURN_VALUE_SIZE);
+        if (strlen(return_value) < 3 || !strncmp(return_value, "OK", RETURN_LENGTH)) {
+            printf("Door didn't open\n");
         } else {
-            printf("\nDoor opened!\n");
+            printf("Door opened\n");
         }
 
-        sleep(10);
+        sleep(5);
 
-        // Closing the door, terminating the application
-        send(sock, closedoor, strlen(closedoor), 0);
-        for (int i = 0; i < 1024; i++) {
-            buffer[i] = 0;
-        }
-        valread = read(sock, buffer, 1024);
-        if (strlen(buffer) < 3 || !strncmp(buffer, "OK", 3)) {
-            printf("\nSomething went wrong, door not closed.\n");
+        // Closing the door
+         
+        send(sock, setap_normal, strlen(setap_normal), 0);
+        sleep(1); // ???
+
+        memset(return_value, 0, RETURN_VALUE_SIZE);
+        valread = read(sock, return_value, RETURN_VALUE_SIZE);
+        if (strlen(return_value) < 3 || !strncmp(return_value, "OK", RETURN_LENGTH)) {
+            printf("Door didn't close\n");
         } else {
-            printf("\nDoor closed!\n");
+            printf("Door closed\n");
         }
     }
 
-    while (wait(NULL) != -1);
-
-    free(logininfo);
+    free(cfg);
 
     return 0;
 }
