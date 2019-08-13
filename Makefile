@@ -12,9 +12,20 @@ quasimodo: Makefile quasimodo.c
 	./quasimodo
 	rm quasimodo
 
+quasimodo-debug: Makefile quasimodo.c
+	gcc quasimodo.c -g -o quasimodo `pkg-config --cflags --libs gstreamer-video-1.0 gtk+-3.0 gstreamer-1.0`
+	gdb ./quasimodo
+	rm quasimodo
+
+server: Makefile server-quasimodo.c
+	gcc server-quasimodo.c -o server-quasimodo
+	scp ./server-quasimodo arina@10.15.12.245:~/
+	rm server-quasimodo
+
 debug: Makefile komodo.c
-	gcc komodo.c -g -o komodo $$(pkg-config --cflags --libs gstreamer-1.0 gtk+-2.0)
+	gcc komodo.c -g -o komodo `pkg-config --cflags --libs gstreamer-video-1.0 gtk+-3.0 gstreamer-1.0`
 	gdb ./komodo
+	rm komodo
 
 clean:
 	rm komodo
