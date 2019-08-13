@@ -83,7 +83,7 @@ realize_cb(GtkWidget *widget, CustomData *data)
 static void 
 dooropen(GtkButton *button, CustomData *data) 
 {
-    system("ssh -t arina@10.15.12.245 \"./server-quasimodo\"");
+    system("ssh -t arina@10.15.12.245 \"./server-komodo\"");
 }
 
 // This function is called when the main window is closed
