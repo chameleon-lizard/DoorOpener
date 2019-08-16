@@ -43,31 +43,6 @@ typedef struct _CustomData {
     gint64 duration;                // Duration of the clip, in nanoseconds 
 } CustomData;
 
-void
-write_log(int type) 
-{
-    time_t mytime = time(NULL);
-    char *time_str = ctime(&mytime);
-    time_str[strlen(time_str)-1] = '\0';
-
-    FILE *log = fopen("log", "a");
-
-    switch(type)
-    {
-        case OPEN:
-            fprintf(log, "%s OPEN\n", time_str);
-            break;
-        case QUIT:
-            fprintf(log, "%s QUIT\n", time_str);
-            break;
-        default:
-            fprintf(log, "%s ERROR\n", time_str);
-            break;
-    }
-
-    fclose(log);
-}
-
 static void 
 realize_cb(GtkWidget *widget, CustomData *data) 
 {
@@ -83,14 +58,13 @@ realize_cb(GtkWidget *widget, CustomData *data)
 static void 
 dooropen(GtkButton *button, CustomData *data) 
 {
-    system("ssh -t arina@10.15.12.245 \"./server-komodo\"");
+    system("ssh -t opener@skud762.bch.cs.msu.ru \"./server-komodo\"");
 }
 
 // This function is called when the main window is closed
 static void 
 delete_event_cb(GtkWidget *widget, GdkEvent *event, CustomData *data) 
 {
-    write_log(2);
     gtk_main_quit();
 }
 
@@ -132,9 +106,13 @@ create_ui(CustomData *data)
 int 
 main(int argc, char *argv[]) 
 {
-    write_log(START);
     // Reading the opener IP address, login and password from the config
-    FILE *config = fopen("config", "r");
+    FILE *config = 0;
+    if (!(config = fopen("config", "r"))) {
+        printf("Error opening config. Is it created?\n");
+        return -1;
+    }
+
     char *cfg = (char *)calloc(CFG_MAX, sizeof(*cfg));
     
     fread(cfg, CFG_MAX, sizeof(*cfg), config);
